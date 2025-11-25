@@ -120,7 +120,12 @@ print(f"n_cells: {len(cells)}")
 print(f"n_turns: {n_turns}")
 print("FODO cells: "+str(cells))
 
-X_initial = np.array([1e-3, 0, 1e-3, 0, 0, 0]) 
+M_full = np.eye(6)
+for cell in cells:
+    M_full = matrices[cell] @ M_full
+print("Full cell transfer matrix:\n"+str(M_full))
+
+X_initial = np.array([1e-5, 0, 1e-5, 0, 0, 0]) 
 
 ## write to julia file
 with open('6D_FODO_simulation.jl', 'w') as f:

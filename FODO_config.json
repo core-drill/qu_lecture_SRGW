@@ -15,6 +15,6 @@
     "l_sector" : 2.5,
     "l_drift" : 1.0,
 
-    "cells" : ["QD", "drift", "sector", "drift", "QF", "drift", "sector", "drift", "QD"],
-    "times" : 10
+    "cells" : ["QF", "drift", "sector", "drift", "QD", "drift", "sector", "drift", "QF"],
+    "times" : 1200
 }
