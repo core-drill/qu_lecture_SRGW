@@ -55,10 +55,11 @@ def transfer_matrix_QD(l_QD, k_QD, gamma):
 
 
 
+####################################
+######## fodo parameter config
 
-# fodo parameter config
 config = json.load(open('FODO_config.json'))
-
+num_units = config['num_units']
 times = config['times']
 cells = config['cells']
 particle = config['particle']
@@ -114,8 +115,9 @@ print("QF:\n"+str(M_QF))
 print("QD:\n"+str(M_QD))
 
 
-n_turns = times * len(cells)
+n_turns = times * len(cells) * num_units
 print(f"times: {times}")
+print(f"num_units: {num_units}")
 print(f"n_cells: {len(cells)}")
 print(f"n_turns: {n_turns}")
 print("FODO cells: "+str(cells))
@@ -125,8 +127,109 @@ for cell in cells:
     M_full = matrices[cell] @ M_full
 print("Full cell transfer matrix:\n"+str(M_full))
 
-X_initial = np.array([1e-5, 0, 1e-5, 0, 0, 0]) 
+#####################################################
+########################################## external force
+scan_config = json.load(open('scan_config.json'))
+distance_m = scan_config["distance_m"]  # m
+object_mass = scan_config["object_mass_kg"]  # kg
+m_particle_kg = m * 1.783e-36  # kg
+G = 6.67430e-11  # m^3 kg^-1 s^-2
 
+l_FODO = 0
+for cell in cells:
+    if cell == "drift":
+        l_FODO += l_drift
+    elif cell == "sector":
+        l_FODO += l_sector
+    elif cell == "QF":
+        l_FODO += l_QF
+    elif cell == "QD":
+        l_FODO += l_QD
+
+l_ring = l_FODO * num_units
+
+theta_cells = []
+s = 0
+l_before = 0
+for i in range(num_units):
+    for j in range(len(cells)):
+        cell = cells[j]
+        if cell == "drift":
+            l_cell = l_drift
+        elif cell == "sector":
+            l_cell = l_sector
+        elif cell == "QF":
+            l_cell = l_QF
+        elif cell == "QD":
+            l_cell = l_QD
+        s += l_cell / 2 + l_before /2
+        theta_cells.append(s / l_ring * 2 * np.pi)
+        l_before = l_cell
+
+
+vector_particle = []
+vector_parallel = []
+for i in range(len(theta_cells)):
+    vector= rho * np.array([np.cos(theta_cells[i]), np.sin(theta_cells[i]), 0])
+    vector_particle.append(vector)
+    vector_p = np.array([-np.sin(theta_cells[i]), np.cos(theta_cells[i]), 0])
+    vector_parallel.append(vector_p)
+
+vector_object = np.array([distance_m, 0, 0])
+
+vector_p_to_o = []
+for i in range(len(theta_cells)):
+    vector_p_to_o.append(vector_object - vector_particle[i])
+
+gr_forces = []
+for i in range(len(theta_cells)):
+    r = np.linalg.norm(vector_p_to_o[i])
+    F = G * m_particle_kg * object_mass / r**2
+    gr_forces.append(F)
+
+f_parallel = []
+for i in range(len(theta_cells)):
+    f_p = gr_forces[i] * np.dot(vector_p_to_o[i], vector_parallel[i]) / np.linalg.norm(vector_p_to_o[i])
+    f_parallel.append(f_p)
+
+
+
+delta_x = []
+c = 299792458  # m/s
+p_0 = p_ev * 1.602e-19 / c  # kg·m/s
+for i in range(num_units):
+    for j in range(len(cells)):
+        index = i * len(cells) + j
+        f_p = f_parallel[index]
+        if cells[j] in ["QF", "QD", "drift"]:
+            if cells[j] == "QF":
+                l_cell = l_QF
+            elif cells[j] == "QD":
+                l_cell = l_QD
+            elif cells[j] == "drift":
+                l_cell = l_drift
+            d_x = np.array([0,0,0,0,
+                            f_parallel[index]*l_cell/(2*m_particle_kg*beta*beta*gamma*gamma*c),
+                            f_parallel[index]*l_cell/(c*beta*p_0)]) 
+            delta_x.append(d_x)
+        if cells[j] == "sector":
+            l_cell = l_sector
+            k_sector = 1/rho**2
+            d_x = np.array([-2*f_parallel[index]/(rho*m_particle_kg*beta*beta*gamma*gamma*gamma*c*c)*(l_cell/k_sector - np.sin(np.sqrt(k_sector)*l_cell)/np.sqrt(k_sector)/k_sector),
+                            -2*f_parallel[index]/(rho*m_particle_kg*beta*beta*gamma*gamma*gamma*c*c)*(l_cell - np.cos(np.sqrt(k_sector)*l_cell))/k_sector,
+                            0,
+                            0,
+                            f_parallel[index]*l_cell/(2*m_particle_kg*beta*beta*gamma*gamma*c)+2*f_parallel[index]/(rho*rho*m_particle_kg*beta*beta*gamma*gamma*gamma*c*c) \
+                            *((l_cell*l_cell/2/k_sector) +(np.cos(np.sqrt(k_sector)*l_cell) - 1)/(k_sector*k_sector) ),
+                            f_parallel[index]*l_cell/(c*beta*p_0)])
+            delta_x.append(d_x)
+
+
+
+X_initial = scan_config["X_in"]
+
+
+#######################################################
 ## write to julia file
 with open('6D_FODO_simulation.jl', 'w') as f:
     f.write("using CSV, DataFrames\n")
@@ -141,14 +244,28 @@ with open('6D_FODO_simulation.jl', 'w') as f:
             if i < 5:
                 f.write("; ")
         f.write("]\n")
-    f.write(f"x_history = zeros(6, {n_turns})\n")
+    f.write("delta_x = [\n")
+    for i in range(len(delta_x)):
+        f.write("    [")
+        for j in range(6):
+            f.write(f"{delta_x[i][j]}")
+            if j < 5:
+                f.write(", ")
+        f.write("]")
+        if i < len(delta_x) - 1:
+            f.write(",\n")
+        else:
+            f.write("\n")
+    f.write("]\n")
+    f.write(f"x_history = zeros(6, {times})\n")
 
     f.write(f"x = x_initial\n")
     for i in range(times):
-        for j in range(len(cells)):
-            f.write(f"x = {cells[j]} * x\n")
-            f.write(f"x_history[: , {i*len(cells)+j+1}] = x\n")
-    
+        for j in range(num_units):
+            for k in range(len(cells)):
+                f.write(f"x = {cells[k]} * x + delta_x[{j*len(cells)+k+1}]\n")
+        f.write(f"x_history[: , {i+1}] = x\n")
+        
     f.write("df = DataFrame(x_history', [:x, :px, :y, :py, :delta, :z])\n")
     f.write(f'CSV.write("output/{particle}_FODO_6D_history.csv", df)\n')
 

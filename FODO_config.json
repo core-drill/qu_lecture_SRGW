@@ -16,5 +16,6 @@
     "l_drift" : 1.0,
 
     "cells" : ["QF", "drift", "sector", "drift", "QD", "drift", "sector", "drift", "QF"],
-    "times" : 1200
+    "num_units" : 12,
+    "times" : 100
 }
