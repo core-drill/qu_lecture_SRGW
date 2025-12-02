@@ -236,6 +236,7 @@ X_initial = scan_config["X_in"]
 
 #######################################################
 ## write to julia file
+save_per_time = config['save_per_time']
 with open('6D_FODO_simulation.jl', 'w') as f:
     f.write("using CSV, DataFrames\n")
     f.write(f"x_initial = [{X_initial[0]}, {X_initial[1]}, {X_initial[2]}, {X_initial[3]}, {X_initial[4]}, {X_initial[5]}]\n")
@@ -262,14 +263,15 @@ with open('6D_FODO_simulation.jl', 'w') as f:
         else:
             f.write("\n")
     f.write("]\n")
-    f.write(f"x_history = zeros(6, {times})\n")
+    f.write(f"x_history = zeros(6, {int(times/save_per_time)+1})\n")
 
     f.write(f"x = x_initial\n")
     for i in range(times):
         for j in range(num_units):
             for k in range(len(cells)):
                 f.write(f"x = {cells[k]} * x + delta_x[{j*len(cells)+k+1}]\n")
-        f.write(f"x_history[: , {i+1}] = x\n")
+        if (i) % save_per_time == 0:
+            f.write(f"x_history[: , {int(i/save_per_time+1)}] = x\n")
         
     f.write("df = DataFrame(x_history', [:x, :px, :y, :py, :delta, :z])\n")
     f.write(f'CSV.write("output/{particle}_FODO_6D_history.csv", df)\n')
