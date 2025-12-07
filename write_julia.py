@@ -71,7 +71,7 @@ beta = config['beta']
 p_ev = beta * np.sqrt(m**2 / (1 - beta**2))  # GeV/c
 p = p_ev*1e-9  # GeV/c
 beta = p_ev / np.sqrt(p_ev**2 + m**2)
-print(f"particle: {particle}, mass: {m}, p_ev: {p_ev}")
+print(f"particle: {particle}, p: {p} GeV/c")
 gamma = 1 / np.sqrt(1 - beta**2)
 print(f"beta: {beta}, gamma: {gamma}")
 
@@ -113,11 +113,10 @@ M_QD = transfer_matrix_QD(l_QD, k_QD, gamma)
 
 matrices = {"drift": M_drift, "sector": M_sector, "QF": M_QF, "QD": M_QD}
 
-print("drift:\n"+str(M_drift))
-print("edge focus* sector:\n"+str(M_sector))
-print("QF:\n"+str(M_QF))
-print("QD:\n"+str(M_QD))
-
+print("drift:\n"+str(np.round(M_drift,4)))
+print("edge focus * sector * edge focus:\n"+str(np.round(M_sector,4)))
+print("QF:\n"+str(np.round(M_QF,4)))
+print("QD:\n"+str(np.round(M_QD,4)))
 
 n_turns = times * len(cells) * num_units
 print(f"times: {times}")
@@ -129,7 +128,7 @@ print("FODO cells: "+str(cells))
 M_full = np.eye(6)
 for cell in cells:
     M_full = matrices[cell] @ M_full
-print("Full cell transfer matrix:\n"+str(M_full))
+print("Full cell transfer matrix:\n"+str(np.round(M_full,4)))
 
 #####################################################
 ########################################## external force
@@ -263,7 +262,7 @@ with open('6D_FODO_simulation.jl', 'w') as f:
         else:
             f.write("\n")
     f.write("]\n")
-    f.write(f"x_history = zeros(6, {int(times/save_per_time)+1})\n")
+    f.write(f"x_history = zeros(6, {int(times/save_per_time)})\n")
 
     f.write(f"x = x_initial\n")
     for i in range(times):
@@ -273,7 +272,7 @@ with open('6D_FODO_simulation.jl', 'w') as f:
         if (i) % save_per_time == 0:
             f.write(f"x_history[: , {int(i/save_per_time+1)}] = x\n")
         
-    f.write("df = DataFrame(x_history', [:x, :px, :y, :py, :delta, :z])\n")
+    f.write("df = DataFrame(x_history', [:x, :px, :y, :py, :z, :delta])\n")
     f.write(f'CSV.write("output/{particle}_FODO_6D_history.csv", df)\n')
 
          
