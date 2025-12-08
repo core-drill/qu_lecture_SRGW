@@ -357,11 +357,12 @@ with open('6D_FODO_simulation.jl', 'w') as f:
     f.write(f"# Trajectory type: {trajectory_type}\n")
     f.write(f"# Time-dependent: {enable_time_dependent}\n\n")
     
-    f.write("using CSV, DataFrames\n\n")
+    f.write("using CSV, DataFrames, StaticArrays, LinearAlgebra\n\n")
     
+    f.write("time_start = time()\n")
     # Initial conditions
     f.write(f"# Initial particle state vector [x, x', y, y', l, delta]\n")
-    f.write(f"x_initial = [{X_initial[0]}, {X_initial[1]}, {X_initial[2]}, {X_initial[3]}, {X_initial[4]}, {X_initial[5]}]\n\n")
+    f.write(f"x_initial = [{X_initial[0]}, {X_initial[1]}, {X_initial[2]}, {X_initial[3]}, {X_initial[4]}, {X_initial[5]}]\n")
     
     # Physical parameters
     f.write("# Physical parameters\n")
@@ -383,24 +384,24 @@ with open('6D_FODO_simulation.jl', 'w') as f:
             if i < 5:
                 f.write("; ")
         f.write("]\n")
+        f.write(f"S_{name} = SMatrix{{6,6}}({name})\n")
     f.write("\n")
     
     # Displacement vectors
     f.write("# Displacement vectors from gravitational perturbation\n")
-    f.write("delta_x = [\n")
+    f.write("delta_x =[\n")
     for i in range(len(delta_x)):
-        f.write("    [")
+        f.write("SVector{6}([")
         for j in range(6):
             f.write(f"{delta_x[i][j]}")
             if j < 5:
                 f.write(", ")
-        f.write("]")
+        f.write("])")
         if i < len(delta_x) - 1:
             f.write(",\n")
         else:
             f.write("\n")
     f.write("]\n\n")
-    
     # History arrays
     f.write(f"# History arrays\n")
     f.write(f"x_history = zeros(6, {int(times/save_per_time)})\n")
@@ -414,7 +415,7 @@ with open('6D_FODO_simulation.jl', 'w') as f:
     for i in range(times):
         for j in range(num_units):
             for k in range(len(cells)):
-                f.write(f"x = {cells[k]} * x + delta_x[{j*len(cells)+k+1}]\n")
+                f.write(f"x .= S_{cells[k]} * x + delta_x[{j*len(cells)+k+1}]\n")
         
         f.write(f"total_time += T_rev\n")
         
@@ -431,6 +432,8 @@ with open('6D_FODO_simulation.jl', 'w') as f:
     
     f.write('println("Simulation complete!")\n')
     f.write(f'println("Results saved to output/{particle}_FODO_6D_history.csv")\n')
+    f.write("time_end = time()\n")
+    f.write("println(\"total run time: \", time_end - time_start)\n")
 
 print("\n=== Generation Complete ===")
 print("Run the generated Julia code with: julia 6D_FODO_simulation.jl")
