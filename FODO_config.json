@@ -16,6 +16,8 @@
 
     "cells" : ["QF", "drift", "sector", "drift", "QD", "drift", "sector", "drift", "QF"],
     "num_units" : 200,
+
     "times" : 100,
     "save_per_time": 100
+
 }
