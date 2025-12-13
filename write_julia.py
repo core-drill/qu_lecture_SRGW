@@ -173,6 +173,10 @@ def compute_displacement_vectors(f_parallel, cells, num_units, l_QF, l_QD, l_dri
 
 ####################################
 ######## FODO parameter config
+c = 299792458.0  # m/s
+m0 = 238.05078 * 1.660539e-27  # kg 
+q0 = 1.602176634e-19  # C
+G= 6.67430e-11  # m^3 kg^-1 s^-2
 
 config = json.load(open('FODO_config.json'))
 num_units = config['num_units']
@@ -182,33 +186,33 @@ particle = config['particle']
 q = config['charge'] 
 m = config['mass'] 
 beta = config['beta']
+gamma = 1 / np.sqrt(1 - beta**2)
 
 p_ev = beta * np.sqrt(m**2 / (1 - beta**2))  # eV/c
-p = p_ev * 1e-9  # GeV/c
-beta = p_ev / np.sqrt(p_ev**2 + m**2)
+p = m0 * beta * c * gamma 
 print(f"particle: {particle}, mass: {m} eV, p_ev: {p_ev:.6e} eV/c")
 print(f"particle: {particle}, p: {p} GeV/c")
-gamma = 1 / np.sqrt(1 - beta**2)
 print(f"beta: {beta:.6f}, gamma: {gamma:.6f}")
 
 # Quadrupole parameters
 g_QF = config['g_QF']
 g_QD = config['g_QD']
-B_rho0 = p / abs(q) / 0.299792458   # T·m
-k_QF = g_QF / B_rho0  # 1/m^2
-k_QD = g_QD / B_rho0  # 1/m^2
+B_rho0 = p/q0   # T·m
+k_QF = g_QF / (p/q0)  # 1/m^2
+k_QD = g_QD / (p/q0)  # 1/m^2
 l_QF = config['l_QF']  # m
 l_QD = config['l_QD']  # m
 
-print(f"k_QF: {k_QF:.10f}, k_QD: {k_QD:.10f}")
+print(f"k_QF: {k_QF}, k_QD: {k_QD}")
 print(f"l_QF: {l_QF} m, l_QD: {l_QD} m")
 
 # Dipole parameters
-rho = config['rho']  # m
+# rho = config['rho']  # m
 l_sector = config['l_sector']  # m
+rho = l_sector*2*num_units/(2*np.pi)  # m
+
 alpha_angle = l_sector / rho * 180/np.pi  # deg
 alpha = alpha_angle / 180 * np.pi  # rad
-
 print(f"rho: {rho} m, alpha: {alpha:.6f} rad ({alpha_angle:.6f}°)")
 print(f"l_sector: {l_sector} m")
 
@@ -246,8 +250,8 @@ for cell in cells:
     elif cell == "QD":
         l_FODO += l_QD
 
-l_ring = l_FODO * num_units
-T_rev = l_ring / (beta * 3e8)  # Revolution period in seconds
+l_ring = l_FODO * num_units  # m
+T_rev = l_ring / (beta * c)  # Revolution period in seconds
 
 print(f"\n=== Ring Geometry ===")
 print(f"FODO cell length: {l_FODO:.2f} m")
@@ -299,8 +303,9 @@ for i in range(num_units):
 # Particle positions and tangent vectors at each element
 vector_particle = []
 vector_parallel = []
+R = l_ring / (2 * np.pi)
 for i in range(len(theta_cells)):
-    vector = rho * np.array([np.cos(theta_cells[i]), np.sin(theta_cells[i]), 0])
+    vector = R * np.array([np.cos(theta_cells[i]), np.sin(theta_cells[i]), 0])
     vector_particle.append(vector)
     vector_p = np.array([-np.sin(theta_cells[i]), np.cos(theta_cells[i]), 0])
     vector_parallel.append(vector_p)
@@ -369,7 +374,6 @@ with open('6D_FODO_simulation.jl', 'w') as f:
     f.write(f"const beta = {beta}\n")
     f.write(f"const gamma = {gamma}\n")
     f.write(f"const c = {c}\n")
-    f.write(f"const T_rev = {T_rev}\n")
     f.write(f"const l_ring = {l_ring}\n\n")
     
     # Transfer matrices
@@ -391,12 +395,12 @@ with open('6D_FODO_simulation.jl', 'w') as f:
     f.write("# Displacement vectors from gravitational perturbation\n")
     f.write("delta_x =[\n")
     for i in range(len(delta_x)):
-        f.write("SVector{6}([")
+        f.write("[")
         for j in range(6):
             f.write(f"{delta_x[i][j]}")
             if j < 5:
                 f.write(", ")
-        f.write("])")
+        f.write("]")
         if i < len(delta_x) - 1:
             f.write(",\n")
         else:
@@ -409,25 +413,26 @@ with open('6D_FODO_simulation.jl', 'w') as f:
     
     # Main tracking loop
     f.write("# Main tracking loop\n")
-    f.write(f"x = copy(x_initial)\n")
-    f.write(f"total_time = 0.0\n\n")
+    f.write(f"x = @MVector [{X_initial[0]}, {X_initial[1]}, {X_initial[2]}, {X_initial[3]}, {X_initial[4]}, {X_initial[5]}]\n")
+
     
-    for i in range(times):
-        for j in range(num_units):
-            for k in range(len(cells)):
-                f.write(f"x .= S_{cells[k]} * x + delta_x[{j*len(cells)+k+1}]\n")
-        
-        f.write(f"total_time += T_rev\n")
-        
-        if i % save_per_time == 0:
-            f.write(f"x_history[:, {int(i/save_per_time+1)}] = x\n")
-            f.write(f"time_of_flight[{int(i/save_per_time+1)}] = total_time\n")
-        f.write("\n")
+    # for i in range(times):
     
+    f.write(f"@inbounds for i in 1:{int(times)}\n")
+    for j in range(num_units):
+        for k in range(len(cells)):
+            f.write(f"  x .= S_{cells[k]} * x + delta_x[{j*len(cells)+k+1}]\n")
+
+    f.write("   if i % 100 == 0\n")
+    f.write('    println(i)\n')
+    f.write("   end\n")
+    # if i % save_per_time == 0:
+    f.write(f"  x_history[:, i] = x\n")
+    f.write("end\n")
+ 
     # Save results
     f.write("# Save tracking results\n")
     f.write("df = DataFrame(x_history', [:x, :px, :y, :py, :l, :delta])\n")
-    f.write("df.time = time_of_flight\n")
     f.write(f'CSV.write("output/{particle}_FODO_6D_history.csv", df)\n\n')
     
     f.write('println("Simulation complete!")\n')
