@@ -173,25 +173,20 @@ def compute_displacement_vectors(f_parallel, cells, num_units, l_QF, l_QD, l_dri
 
 ####################################
 ######## FODO parameter config
-c = 299792458.0  # m/s
-m0 = 238.05078 * 1.660539e-27  # kg 
-q0 = 1.602176634e-19  # C
-G= 6.67430e-11  # m^3 kg^-1 s^-2
-
 config = json.load(open('FODO_config.json'))
+c = 299792458.0  # m/s
+m0 = config['mass'] * 1.660539e-27  # kg 
+q0 = config['charge'] * 1.602176634e-19  # C
+G= 6.67430e-11  # m^3 kg^-1 s^-2
 num_units = config['num_units']
 times = config['times']
 cells = config['cells']
 particle = config['particle']
-q = config['charge'] 
-m = config['mass'] 
 beta = config['beta']
 gamma = 1 / np.sqrt(1 - beta**2)
 
-p_ev = beta * np.sqrt(m**2 / (1 - beta**2))  # eV/c
 p = m0 * beta * c * gamma 
-print(f"particle: {particle}, mass: {m} eV, p_ev: {p_ev:.6e} eV/c")
-print(f"particle: {particle}, p: {p} GeV/c")
+print(f"particle: {particle}, mass: {m0} kg, p: {p:.6e} kg·m/s")
 print(f"beta: {beta:.6f}, gamma: {gamma:.6f}")
 
 # Quadrupole parameters
@@ -272,10 +267,10 @@ print(f"Trajectory type: {trajectory_type}")
 print(f"Time-dependent forces: {enable_time_dependent}")
 
 # Physical constants
-m_particle_kg = m * 1.783e-36  # kg (eV to kg conversion)
+m_particle_kg = m0  # kg (eV to kg conversion)
 G = 6.67430e-11  # m^3 kg^-1 s^-2
 c = 299792458  # m/s
-p_0 = p_ev * 1.602e-19 / c  # kg·m/s
+p_0 = p # kg·m/s
 
 print(f"Particle mass: {m_particle_kg:.6e} kg")
 print(f"Particle momentum: {p_0:.6e} kg·m/s")
@@ -424,9 +419,6 @@ with open('6D_FODO_simulation.jl', 'w') as f:
         for k in range(len(cells)):
             f.write(f"  x .= S_{cells[k]} * x + delta_x[{j*len(cells)+k+1}]\n")
 
-    f.write("   if i % 100 == 0\n")
-    f.write('    println(i)\n')
-    f.write("   end\n")
     # if i % save_per_time == 0:
     f.write(f"  x_history[:, i] = x\n")
     f.write("end\n")
