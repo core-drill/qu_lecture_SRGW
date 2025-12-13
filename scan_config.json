@@ -33,9 +33,7 @@
     
     "simulation_parameters": {
         "enable_time_dependent": true,
-        "time_resolution": 100,
-        "times": 200,
-        "save_per_time": 1,
+        "change_per_times": 100,
         "comments": "if true, forces recalculated each turn (slower but more accurate)"
     }
 }

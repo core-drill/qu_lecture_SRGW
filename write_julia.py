@@ -351,6 +351,7 @@ else:
 
 X_initial = scan_config["X_in"]
 save_per_time = config['save_per_time']
+change_per_times = scan_config["simulation_parameters"]["change_per_times"]
 
 print(f"\n=== Generating Julia Code ===")
 print(f"Output file: 6D_FODO_simulation.jl")
