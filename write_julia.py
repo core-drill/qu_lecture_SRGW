@@ -269,7 +269,6 @@ print(f"Time-dependent forces: {enable_time_dependent}")
 # Physical constants
 m_particle_kg = m0  # kg (eV to kg conversion)
 G = 6.67430e-11  # m^3 kg^-1 s^-2
-c = 299792458  # m/s
 p_0 = p # kg·m/s
 
 print(f"Particle mass: {m_particle_kg:.6e} kg")
@@ -404,9 +403,7 @@ with open('6D_FODO_simulation.jl', 'w') as f:
     f.write("]\n\n")
     # History arrays
     f.write(f"# History arrays\n")
-    f.write(f"x_history = zeros(6, {int(times/save_per_time)})\n")
-    f.write(f"time_of_flight = zeros({int(times/save_per_time)})\n\n")
-    
+    f.write(f"x_history = zeros(6, {int(times/save_per_time)})\n")    
     # Main tracking loop
     f.write("# Main tracking loop\n")
     f.write(f"x = @MVector [{X_initial[0]}, {X_initial[1]}, {X_initial[2]}, {X_initial[3]}, {X_initial[4]}, {X_initial[5]}]\n")
@@ -420,7 +417,9 @@ with open('6D_FODO_simulation.jl', 'w') as f:
             f.write(f"  x .= S_{cells[k]} * x + delta_x[{j*len(cells)+k+1}]\n")
 
     # if i % save_per_time == 0:
-    f.write(f"  x_history[:, i] = x\n")
+    f.write(f"  if i % {save_per_time} == 0\n")
+    f.write(f"      x_history[:, div(i, {save_per_time})] = x\n")
+    f.write("  end\n")
     f.write("end\n")
  
     # Save results
