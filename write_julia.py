@@ -143,8 +143,8 @@ def compute_displacement_vectors(f_parallel, cells, num_units, l_QF, l_QD, l_dri
                 
                 # Displacement for drift-like elements
                 d_x = np.array([0, 0, 0, 0,
-                               f_p * l_cell / (2 * m_particle_kg * beta**2 * gamma**2 * c),
-                               f_p * l_cell / (c * beta * p_0)])
+                    f_p * l_cell**2 / (2 * m_particle_kg * gamma**3 * beta**2 * c**2),
+                    f_p * l_cell / (p_0 * c * beta)])
                 delta_x.append(d_x)
                 
             elif cells[j] == "sector":
@@ -154,10 +154,10 @@ def compute_displacement_vectors(f_parallel, cells, num_units, l_QF, l_QD, l_dri
                 
                 d_x = np.array([
                     -2*f_p/(rho*m_particle_kg*beta**2*gamma**3*c**2)*(l_cell/k_sector - np.sin(np.sqrt(k_sector)*l_cell)/np.sqrt(k_sector)/k_sector),
-                    -2*f_p/(rho*m_particle_kg*beta**2*gamma**3*c**2)*(l_cell - np.cos(np.sqrt(k_sector)*l_cell))/k_sector,
+                    -2*f_p/(rho*m_particle_kg*beta**2*gamma**3*c**2)*(1 - np.cos(np.sqrt(k_sector)*l_cell))/k_sector,
                     0,
                     0,
-                    f_p*l_cell/(2*m_particle_kg*beta**2*gamma**2*c) + 2*f_p/(rho**2*m_particle_kg*beta**2*gamma**3*c**2) \
+                    f_p*l_cell**2/(2*m_particle_kg*gamma**3*beta**2*c**2) + 2*f_p/(rho**2*m_particle_kg*beta**2*gamma**3*c**2) \
                         * ((l_cell**2/2/k_sector) + (np.cos(np.sqrt(k_sector)*l_cell) - 1)/(k_sector**2)),
                     f_p*l_cell/(c*beta*p_0)
                 ])
