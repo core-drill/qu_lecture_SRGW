@@ -10,7 +10,7 @@
 
     "linear_motion": {
         "velocity_vector": [-10, 10, 0],
-        "initial_position": [800, -50, 0],
+        "initial_position": [50, -10, 10],
         "comments": "velocity in m/s, position in m"
     },
     
