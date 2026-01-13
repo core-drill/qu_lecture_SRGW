@@ -3,6 +3,8 @@ import json
 import numpy as np
 import time
 import matplotlib.pyplot as plt
+import shutil
+
 
 
 def transfer_matrix_drift(l_drift, gamma):
@@ -210,10 +212,6 @@ print(f"l_sector: {l_sector} m")
 l_drift = config['l_drift']  # m
 print(f"l_drift: {l_drift} m")
 
-# Create output directory
-if not os.path.exists('output'):
-    os.makedirs('output')
-
 # Build transfer matrices
 matrices = {}
 matrices['QF'] = transfer_matrix_QF(l_QF, k_QF, gamma)
@@ -310,18 +308,38 @@ for i in range(len(theta_cells)):
 # For initial setup, use t=0
 delta_x = []
 f_parallel = []
+history_object = []
+history_t = []
 for i in range(int(times/change_per_times)):
     t = i * change_per_times * T_rev
     vector_object = get_object_position(trajectory_type, t, scan_config)
     gr_forces_i, f_parallel_i = compute_gravitational_forces(
         theta_cells, vector_particle, vector_parallel,
         vector_object, m_particle_kg, object_mass, G)
+    history_object.append(vector_object)
 
     delta_x_i = compute_displacement_vectors(
         f_parallel_i, cells, num_units, l_QF, l_QD, l_drift, l_sector,
         rho, m_particle_kg, beta, gamma, c, p_0)
     delta_x.append(delta_x_i)
     f_parallel.append(f_parallel_i)
+
+str_kg = f"{object_mass:.3e}"
+print(scan_config["output_folder"])
+output_path = 'output/'+scan_config["output_folder"]+'/'+str_kg+'kg_'+scan_config["trajectory_type"]+'_' + scan_config["storage_comment"]+'/'
+if not os.path.exists(output_path):
+    os.makedirs(output_path)    
+
+
+history_object_track_and_t = []
+for i in range(len(history_object)):
+    history_object_track_and_t.append([i*change_per_times*T_rev,
+                                       history_object[i][0],
+                                       history_object[i][1],
+                                       history_object[i][2]])
+
+
+np.savetxt(output_path+'object_trajectory.csv', np.array(history_object_track_and_t), delimiter=',', header='t,x,y,z', comments='')
 
 #######################################################
 ## Write Julia simulation file
@@ -409,10 +427,10 @@ with open('6D_FODO_simulation.jl', 'w') as f:
     # Save results
     f.write("# Save tracking results\n")
     f.write("df = DataFrame(x_history', [:x, :px, :y, :py, :l, :delta])\n")
-    f.write(f'CSV.write("output/{particle}_FODO_6D_history.csv", df)\n\n')
+    f.write(f'CSV.write("{output_path}{particle}_FODO_6D_history.csv", df)\n\n')
     
     f.write('println("Simulation complete!")\n')
-    f.write(f'println("Results saved to output/{particle}_FODO_6D_history.csv")\n')
+    f.write(f'println("Results saved to {output_path}{particle}_FODO_6D_history.csv")\n')
     f.write("time_end = time()\n")
     f.write("println(\"total run time: \", time_end - time_start)\n")
 
@@ -425,8 +443,13 @@ plt.xlabel("s [m]")
 plt.ylabel("F_parallel [N]")
 plt.title("F_parallel Distribution along Ring at t=0")
 plt.grid()
-plt.savefig("output/gravitational_force_distribution.png", dpi=400)
+plt.savefig(f"{output_path}gravitational_force_distribution.png", dpi=400)
 plt.close()
+
+s_f_parallel = []
+for i in range(len(s_cells)):
+    s_f_parallel.append((s_cells[i],f_parallel[0][i]))
+np.savetxt(f"{output_path}gravitational_force_distribution.csv", np.array(s_f_parallel), delimiter=',', header='s,F_parallel', comments='')
 
 plt.figure(figsize=(8,5))
 plt.plot(s_cells, f_parallel[1])
@@ -434,5 +457,9 @@ plt.xlabel("s [m]")
 plt.ylabel("F_parallel [N]")
 plt.title(f"F_parallel Distribution along Ring at t={change_per_times*T_rev:.2e} s")
 plt.grid()
-plt.savefig("output/gravitational_force_distribution_time_dependent.png", dpi=400)
+plt.savefig(f"{output_path}gravitational_force_distribution_time_dependent.png", dpi=400)
 plt.close()
+
+
+shutil.copy('FODO_config.json', output_path+'FODO_config.json')
+shutil.copy('scan_config.json', output_path+'scan_config.json')

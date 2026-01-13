@@ -2,3 +2,7 @@ results/
 output/
 FODO_6D_history.csv
 6D_FODO_simulation.jl
+test.jl
+output_old/
+output_test/
+output_results/

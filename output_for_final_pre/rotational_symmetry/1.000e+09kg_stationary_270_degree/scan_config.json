@@ -2,15 +2,15 @@
     "X_in" : [0, 0, 0, 0, 0, 0],
     
     "object_mass_kg": 1e9,
-    "output_folder": "time_reversal_symmetry",
-    "storage_comment": "minus_pos0_plus_v0",
-    "trajectory_type": "linear",
+    "output_folder": "rotational_symmetry",
+    "storage_comment": "270_degree",
+    "trajectory_type": "stationary",
     
     "stationary_position": [0, -5e3, 0],
 
     "linear_motion": {
-        "velocity_vector": [0, 50, 0],
-        "initial_position": [5000, -1.384629771106516455e+04, 500],
+        "velocity_vector": [10, 0, 0],
+        "initial_position": [0, -5000, 500],
         "comments": "velocity in m/s, position in m"
     },
     
